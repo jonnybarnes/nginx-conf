@@ -1,0 +1,75 @@
+# redirect non-https traffic to https
+server {
+    listen 80;
+    listen [::]:80;
+    server_name www.jonnybarnes.uk jonnybarnes.uk;
+    return 301 https://jonnybarnes.uk$request_uri;
+}
+
+# redirect www to non-www
+server {
+    listen 443 ssl spdy;
+    listen [::]:443 ssl spdy;
+    server_name www.jonnybarnes.uk;
+    return 301 https://jonnybarnes.uk$request_uri;
+
+    #define ssl cert/key
+    ssl_certificate /etc/ssl/private/jbuk.unified.crt;
+    ssl_certificate_key /etc/ssl/private/jbuk.decrypted.key;
+}
+
+server {
+    listen 443 ssl spdy default_server;
+    listen [::]:443 ssl spdy;
+    server_name jonnybarnes.uk;
+
+    #define ssl cert/key
+    ssl_certificate /etc/ssl/private/jbuk.unified.crt;
+    ssl_certificate_key /etc/ssl/private/jbuk.decrypted.key;
+
+    add_header Strict-Transport-Security "max-age=31536000; includeSubdomains; preload";
+    add_header Public-Key-Pins "pin-sha256='YwLyi4nuVdn9W3LgJzl3RuWSa7Q2R4H02Uyn1yoxtl4='; pin-sha256='RVkKfDgqfEuAz1Ant86Jmlz27y272iicB9mnmYLgqAw='; max-age=604800; includeSubdomains"; 
+
+    # RIP Terry
+    add_header X-Clacks-Overhead 'GNU Terry Pratchett';
+
+    access_log .../websites/jbl5/storage/logs/access.log;
+    error_log .../websites/jbl5/storage/logs/error.log;
+    rewrite_log on;
+
+    #default root
+    root .../websites/jbl5/public;
+
+    index index.php;
+
+    client_max_body_size 8M;
+    
+    location / {
+        try_files $uri $uri/ /index.php;
+    }
+
+    location ~* \.php$ {
+        fastcgi_pass unix:/usr/local/var/run/php-fpm.sock;
+        fastcgi_index index.php;
+        fastcgi_split_path_info ^(.+\.php)(.*)$;
+        include includes/fastcgi_params;
+        fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    }
+
+    location ~ /\.ht {
+        deny all;
+    }
+
+    location /assets/profile-images/ {
+        autoindex on;
+    }
+
+    # Specify a charset
+    charset utf-8;
+
+    # Security Headers
+    include includes/security-headers.conf;
+
+    # SSL Stapling
+    include includes/stapling.conf;
+}
